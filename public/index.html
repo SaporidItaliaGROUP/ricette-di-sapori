@@ -135,16 +135,20 @@ const archivioLocale = {
 };
 
 function creaArchivioAppwrite() {
-  const { Client, Account, TablesDB, Storage, Functions, ID, Query, Permission, Role } = Appwrite;
+  const { Client, Account, Teams, TablesDB, Storage, Functions, ID, Query, Permission, Role } = Appwrite;
   const client = new Client().setEndpoint(CFG.endpoint).setProject(CFG.projectId);
-  const account = new Account(client), db = new TablesDB(client), storage = new Storage(client), funzioni = new Functions(client);
+  const account = new Account(client), db = new TablesDB(client), storage = new Storage(client), squadre = new Teams(client), funzioni = new Functions(client);
   const squadra = Role.team(CFG.teamId);
   const permessi = (r) => [Permission.read(squadra), Permission.update(squadra), Permission.delete(squadra), ...(r.pubblica ? [Permission.read(Role.any())] : [])];
   return {
-    redattore: false,
-    async avvia() { try { await account.get(); this.redattore = true; } catch { this.redattore = false; } },
-    async accedi(email, password) { await account.createEmailPasswordSession(email, password); this.redattore = true; },
-    async esci() { await account.deleteSession("current"); this.redattore = false; },
+    redattore: false, // può scrivere: ha fatto l'accesso ED è nella squadra della redazione
+    dentro: false,    // ha fatto l'accesso
+    async avvia() {
+      try { await account.get(); this.dentro = true; } catch { this.dentro = false; this.redattore = false; return; }
+      try { this.redattore = (await squadre.list()).teams.some((t) => t.$id === CFG.teamId); } catch { this.redattore = false; }
+    },
+    async accedi(email, password) { await account.createEmailPasswordSession(email, password); await this.avvia(); },
+    async esci() { await account.deleteSession("current"); this.dentro = false; this.redattore = false; },
     async elenco() {
       const tutte = []; let ultimo = null;
       for (;;) {
@@ -374,7 +378,9 @@ function finestraAccesso() {
 function aggiornaTesta() {
   $("btnNuova").hidden = !archivio.redattore;
   $("btnAccesso").hidden = !COLLEGATO;
-  $("btnAccesso").textContent = archivio.redattore ? "Esci" : "Accedi";
+  const dentro = archivio.dentro || false;
+  $("btnAccesso").textContent = dentro ? "Esci" : "Accedi";
+  if (COLLEGATO) mostraAvviso(dentro && !archivio.redattore ? "Hai fatto l'accesso, ma questo utente non fa parte della redazione: puoi solo guardare le ricette. Chiedi di essere aggiunto alla squadra «Redazione»." : "");
 }
 
 /* ---------- Installazione sul telefono ---------- */
@@ -398,7 +404,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) naviga
 $("versione").textContent = "versione " + VERSION + " del " + VERSION_DATE;
 $("btnNuova").onclick = () => modifica(null);
 $("btnAccesso").onclick = async () => {
-  if (!archivio.redattore) return finestraAccesso();
+  if (!archivio.dentro) return finestraAccesso();
   try { await archivio.esci(); } catch {}
   aggiornaTesta(); await ricarica();
 };
