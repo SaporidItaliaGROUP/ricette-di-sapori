@@ -19,6 +19,8 @@ solo la redazione (Claudio e Veronique) aggiunge e modifica.
 | `public/appwrite.js` | Libreria di Appwrite per il browser (versione 29.2.0). Non modificare. |
 | `functions/importa-link/` | Funzione Appwrite: legge una ricetta da un indirizzo web (scheda «schema.org Recipe»). |
 | `functions/leggi-foto/` | Funzione Appwrite: legge la foto di una ricetta con l'intelligenza artificiale (Claude). La chiave `ANTHROPIC_API_KEY` sta solo nelle variabili della funzione su Appwrite. |
+| `public/manifest.webmanifest`, `public/icona-*.png` | Scheda e icone dell'app installabile sul telefono. |
+| `public/sw.js` | Servizio in sottofondo: rende l'app installabile e apribile senza rete. Tiene in memoria solo le pagine, mai i dati. **Cambiare il numero `MEMORIA` a ogni pubblicazione**, insieme a `VERSION`. |
 | `prove/prova.mjs` | Prove automatiche: `node prove/prova.mjs`. |
 
 ## Dati
@@ -53,5 +55,7 @@ solo la redazione (Claudio e Veronique) aggiunge e modifica.
 - Fatto e controllato sul servizio vero: squadra `redazione`, database e tabella `ricette` con tutti i campi, archivio `foto`, funzioni `importa-link` e `leggi-foto` caricate; una riga di prova creata ed eliminata con la chiave di amministratore; `importa-link` risponde e rifiuta chi non ha fatto l'accesso.
 - **Mai provato dal browser sul servizio vero**: accesso con email e password, salvataggio e foto fatti da un utente, ricette private invisibili ai clienti, lettura da link su siti reali, lettura delle foto con l'intelligenza artificiale (manca la chiave). Dall'ambiente di sviluppo non si può: ogni richiesta parte come amministratore.
 - Mancano: utenti della redazione, chiave dell'intelligenza artificiale, prova del sito dal browser.
+- Versione 0.2 (app installabile sul telefono, pulsante «Installa l'app», apertura senza rete): scritta e provata in automatico, **non pubblicata**. L'installazione su un telefono vero non è stata provata. Senza rete si apre il programma ma non si vedono le ricette (stanno sul server).
+- L'indirizzo gratuito `appwrite.network` viene bloccato da Avast sul computer del proprietario: per i clienti serve un indirizzo proprio (es. `ricette.saporiditalia.club`).
 - Dubbi da verificare: tempo massimo di una funzione chiamata dal browser (la lettura di una foto potrebbe superarlo); dimensione massima della foto inviata alla funzione.
 - Schermate solo in italiano: i clienti di Dakar leggono il francese (da decidere).

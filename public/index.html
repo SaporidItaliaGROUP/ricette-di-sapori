@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Le ricette di Sapori</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#a8321f">
+<link rel="icon" href="icona-192.png">
+<link rel="apple-touch-icon" href="icona-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ricette Sapori">
 <style>
 :root{--carta:#fbf6ec;--bianco:#fffdf8;--inchiostro:#2b211a;--tenue:#7a6a5c;--rosso:#a8321f;--verde:#3f6b3a;--oro:#c8901a;--riga:#e6dccb}
 *{box-sizing:border-box}
@@ -56,6 +62,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 <body>
 <header>
   <h1>Le ricette di Sapori<small id="versione"></small></h1>
+  <button class="btn chiaro" id="btnInstalla" hidden>📲 Installa l'app</button>
   <button class="btn chiaro" id="btnNuova" hidden>+ Nuova ricetta</button>
   <button class="btn chiaro" id="btnAccesso" hidden></button>
 </header>
@@ -78,7 +85,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 <script src="config.js"></script>
 <script>
 "use strict";
-const VERSION = "0.1", VERSION_DATE = "16/11/2026";
+const VERSION = "0.2", VERSION_DATE = "16/11/2026";
 const CHIAVE_LOCALE = "ricette-di-sapori-v1";
 const CATEGORIE_BASE = ["Antipasti", "Primi", "Secondi", "Contorni", "Dolci", "Pane e pizza", "Salse", "Bevande"];
 const CFG = window.RICETTE_CONFIG || {};
@@ -369,6 +376,23 @@ function aggiornaTesta() {
   $("btnAccesso").hidden = !COLLEGATO;
   $("btnAccesso").textContent = archivio.redattore ? "Esci" : "Accedi";
 }
+
+/* ---------- Installazione sul telefono ---------- */
+const INSTALLATA = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const IPHONE = /iphone|ipad|ipod/i.test(navigator.userAgent);
+let invito = null; // su Android e computer il browser ci dà un «invito» da mostrare al clic
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); invito = e; $("btnInstalla").hidden = false; });
+window.addEventListener("appinstalled", () => { invito = null; $("btnInstalla").hidden = true; });
+if (IPHONE && !INSTALLATA) $("btnInstalla").hidden = false;
+$("btnInstalla").onclick = async () => {
+  if (invito) { invito.prompt(); await invito.userChoice; invito = null; $("btnInstalla").hidden = true; return; }
+  apri(`<h2>Installare l'app su iPhone</h2>
+    <ol><li>Apri questa pagina con <b>Safari</b>.</li><li>Tocca il pulsante <b>Condividi</b> (il quadrato con la freccia in su).</li>
+    <li>Scegli <b>Aggiungi alla schermata Home</b>.</li><li>Conferma con <b>Aggiungi</b>.</li></ol>
+    <div class="riga"><button class="btn" id="iChiudi">Chiudi</button></div>`);
+  $("iChiudi").onclick = chiudi;
+};
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 /* ---------- Avvio ---------- */
 $("versione").textContent = "versione " + VERSION + " del " + VERSION_DATE;

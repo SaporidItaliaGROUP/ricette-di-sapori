@@ -34,8 +34,10 @@ prova("rifiuta indirizzi interni", !indirizzoPermesso("http://localhost/x") && !
 
 /* ---- 2. Il programma nel browser ---- */
 console.log("Programma (modalità prova)");
-const TIPI = { ".html": "text/html", ".js": "text/javascript" };
+const TIPI = { ".html": "text/html", ".js": "text/javascript", ".webmanifest": "application/manifest+json", ".png": "image/png" };
 const server = http.createServer(async (req, res) => {
+  // Le prove girano in modalità prova: al posto di config.js il server ne dà uno senza progetto.
+  if (req.url.startsWith("/config.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end("window.RICETTE_CONFIG = { projectId: '' };"); }
   const f = path.join(qui, "../public", req.url === "/" ? "index.html" : req.url.split("?")[0]);
   try { res.writeHead(200, { "content-type": TIPI[path.extname(f)] || "application/octet-stream" }); res.end(await readFile(f)); }
   catch { res.writeHead(404); res.end(); }
@@ -51,8 +53,6 @@ const errori = [];
 p.on("pageerror", (e) => errori.push(String(e)));
 p.on("console", (m) => { if (m.type() === "error") errori.push(m.text()); });
 p.on("dialog", (d) => d.accept());
-// Le prove girano in modalità prova: al posto di config.js ne usiamo uno senza progetto.
-await p.route("**/config.js", (r) => r.fulfill({ contentType: "text/javascript", body: "window.RICETTE_CONFIG = { projectId: '' };" }));
 await p.goto(indirizzo);
 
 prova("avviso di modalità prova visibile", await p.locator("#avviso").isVisible());
@@ -110,6 +110,23 @@ await p.click(".scheda >> text=Carbonara romana");
 await p.click("#dElimina");
 await p.waitForSelector(".velo", { state: "detached" });
 prova("eliminazione", (await p.locator(".scheda").count()) === 1);
+
+console.log("App installabile");
+const man = await p.evaluate(async () => (await fetch(document.querySelector('link[rel="manifest"]').href)).json());
+const icone = await p.evaluate(async (l) => Promise.all(l.map(async (i) => (await fetch(i.src)).ok)), man.icons);
+prova("scheda dell'app: nome, schermo pieno, icone 192 e 512 presenti", man.name === "Le ricette di Sapori" && man.display === "standalone" && man.icons.some((i) => i.sizes === "192x192") && man.icons.some((i) => i.sizes === "512x512") && icone.every(Boolean));
+prova("servizio in sottofondo attivo", await p.evaluate(async () => !!(await navigator.serviceWorker.ready).active));
+await p.waitForFunction(async () => (await caches.keys()).length > 0);
+await p.context().setOffline(true);
+await p.reload();
+prova("si apre anche senza rete", (await p.locator("header h1").textContent()).includes("Le ricette di Sapori") && (await p.locator(".scheda").count()) === 1);
+await p.context().setOffline(false);
+await p.setViewportSize({ width: 390, height: 800 });
+prova("su iPhone il pulsante spiega come installare", await (async () => {
+  const q = await browser.newPage({ userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari/604.1", viewport: { width: 390, height: 800 } });
+  await q.goto(indirizzo); await q.click("#btnInstalla");
+  const ok = (await q.locator(".finestra").textContent()).includes("Aggiungi alla schermata Home"); await q.close(); return ok;
+})());
 
 const vecchio = await p.evaluate(() => { localStorage.setItem("ricette-di-sapori-v1", JSON.stringify([{ id: "v1", titolo: "Vecchia" }])); return true; });
 await p.reload();
