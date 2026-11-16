@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le ricette di Sapori</title>
+<style>
+:root{--carta:#fbf6ec;--bianco:#fffdf8;--inchiostro:#2b211a;--tenue:#7a6a5c;--rosso:#a8321f;--verde:#3f6b3a;--oro:#c8901a;--riga:#e6dccb}
+*{box-sizing:border-box}
+body{margin:0;background:var(--carta);color:var(--inchiostro);font:16px/1.5 Georgia,"Times New Roman",serif}
+button,input,select,textarea{font:inherit;color:inherit}
+header{background:var(--rosso);color:#fff;padding:14px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header h1{margin:0;font-size:1.45rem;font-weight:normal;font-style:italic;flex:1}
+header small{display:block;font-style:normal;font-size:.72rem;opacity:.85;font-family:system-ui,sans-serif}
+.btn{border:1px solid var(--riga);background:var(--bianco);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:system-ui,sans-serif;font-size:.92rem}
+.btn.primo{background:var(--verde);border-color:var(--verde);color:#fff}
+.btn.chiaro{background:transparent;border-color:#fff8;color:#fff}
+.btn.pericolo{color:var(--rosso)}
+.btn:disabled{opacity:.5;cursor:wait}
+#avviso{background:#fff3cd;border-bottom:1px solid #e8d48a;padding:8px 16px;font:.85rem system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.filtri{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.filtri input,.filtri select,.campo input,.campo textarea{width:100%;padding:9px 10px;border:1px solid var(--riga);border-radius:8px;background:var(--bianco)}
+.griglia{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.scheda{background:var(--bianco);border:1px solid var(--riga);border-radius:12px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+.scheda:hover{box-shadow:0 4px 14px #0002}
+.scheda .foto{aspect-ratio:4/3;background:#eadfcc center/cover;display:flex;align-items:center;justify-content:center;font-size:2.4rem;color:#c9b99f}
+.scheda .foto img{width:100%;height:100%;object-fit:cover}
+.scheda .testo{padding:10px 12px}
+.scheda h3{margin:0 0 4px;font-size:1.05rem}
+.stelle{color:var(--oro);letter-spacing:1px;white-space:nowrap}
+.stelle .vuota{color:#d9cdb8}
+.etichette{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.etichetta{font:.72rem system-ui,sans-serif;background:#efe6d5;border-radius:99px;padding:2px 9px;color:var(--tenue)}
+.etichetta.privata{background:#f5d9d3;color:var(--rosso)}
+.vuoto{text-align:center;color:var(--tenue);padding:50px 10px}
+.velo{position:fixed;inset:0;background:#0007;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto;z-index:10}
+.finestra{background:var(--bianco);border-radius:14px;max-width:720px;width:100%;padding:20px;margin:auto}
+.finestra h2{margin:0 0 12px;font-style:italic;font-weight:normal;color:var(--rosso)}
+.campo{margin-bottom:12px}
+.campo label{display:block;font:.8rem system-ui,sans-serif;color:var(--tenue);margin-bottom:3px}
+.campo textarea{min-height:110px;resize:vertical}
+.due{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.riga{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.importa{background:#f3ecdd;border:1px dashed #cdbd9f;border-radius:10px;padding:12px;margin-bottom:14px}
+.dubbi{background:#fff3cd;border:1px solid #e8d48a;border-radius:8px;padding:8px 12px;margin-bottom:12px;font:.88rem system-ui,sans-serif}
+.scegli-stelle button{background:none;border:0;font-size:1.7rem;cursor:pointer;color:#d9cdb8;padding:0 2px}
+.scegli-stelle button.piena{color:var(--oro)}
+.dettaglio img{width:100%;max-height:340px;object-fit:cover;border-radius:10px;margin-bottom:12px}
+.dettaglio ul{padding-left:20px}
+.dettaglio .passi{white-space:pre-line}
+.messaggio{font:.88rem system-ui,sans-serif;color:var(--rosso);min-height:1.2em}
+@media(max-width:640px){.filtri,.due{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Le ricette di Sapori<small id="versione"></small></h1>
+  <button class="btn chiaro" id="btnNuova" hidden>+ Nuova ricetta</button>
+  <button class="btn chiaro" id="btnAccesso" hidden></button>
+</header>
+<div id="avviso" hidden></div>
+<main>
+  <div class="filtri">
+    <input id="fTesto" type="search" placeholder="Cerca per titolo o ingrediente…" aria-label="Cerca">
+    <select id="fCategoria" aria-label="Categoria"></select>
+    <select id="fStelle" aria-label="Stelle">
+      <option value="0">Tutte le stelle</option>
+      <option value="5">★★★★★</option><option value="4">★★★★ e più</option>
+      <option value="3">★★★ e più</option><option value="2">★★ e più</option><option value="1">★ e più</option>
+    </select>
+  </div>
+  <div id="elenco" class="griglia"></div>
+</main>
+<div id="finestre"></div>
+
+<script src="appwrite.js"></script>
+<script src="config.js"></script>
+<script>
+"use strict";
+const VERSION = "0.1", VERSION_DATE = "16/11/2026";
+const CHIAVE_LOCALE = "ricette-di-sapori-v1";
+const CATEGORIE_BASE = ["Antipasti", "Primi", "Secondi", "Contorni", "Dolci", "Pane e pizza", "Salse", "Bevande"];
+const CFG = window.RICETTE_CONFIG || {};
+const COLLEGATO = !!(CFG.projectId && window.Appwrite);
+
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const righe = (t) => String(t || "").split(/\n|;/).map((x) => x.trim()).filter(Boolean);
+const virgole = (t) => String(t || "").split(",").map((x) => x.trim()).filter(Boolean);
+const soloHttp = (u) => (/^https?:\/\//i.test(String(u || "").trim()) ? String(u).trim() : "");
+
+// Completa una ricetta con tutti i campi: i dati vecchi non devono mai rompersi.
+function normalize(r) {
+  return {
+    id: r.id || r.$id || "",
+    titolo: r.titolo || "", link: r.link || "", fonte: r.fonte || "",
+    categorie: Array.isArray(r.categorie) ? r.categorie : [],
+    ingredienti: Array.isArray(r.ingredienti) ? r.ingredienti : [],
+    procedimento: r.procedimento || "", note: r.note || "",
+    tempo: r.tempo || "", porzioni: r.porzioni || "",
+    stelle: Math.max(0, Math.min(5, parseInt(r.stelle, 10) || 0)),
+    pubblica: !!r.pubblica,
+    fotoId: r.fotoId || "", fotoUrl: r.fotoUrl || "",
+    creata: r.creata || r.$createdAt || "",
+  };
+}
+const CAMPI = ["titolo", "link", "fonte", "categorie", "ingredienti", "procedimento", "note", "tempo", "porzioni", "stelle", "pubblica", "fotoId", "fotoUrl"];
+const soloCampi = (r) => Object.fromEntries(CAMPI.map((c) => [c, r[c]]));
+
+/* ---------- Archivio: nel browser (prova) oppure su Appwrite ---------- */
+const archivioLocale = {
+  redattore: true,
+  async avvia() {},
+  leggi() { try { return JSON.parse(localStorage.getItem(CHIAVE_LOCALE)) || []; } catch { return []; } },
+  scrivi(l) { localStorage.setItem(CHIAVE_LOCALE, JSON.stringify(l)); },
+  async elenco() { return this.leggi().map(normalize); },
+  async salva(r) {
+    const l = this.leggi();
+    if (r.id) { const i = l.findIndex((x) => x.id === r.id); if (i >= 0) l[i] = { ...l[i], ...r }; }
+    else { r.id = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); r.creata = new Date().toISOString(); l.unshift(r); }
+    this.scrivi(l); return r;
+  },
+  async elimina(r) { this.scrivi(this.leggi().filter((x) => x.id !== r.id)); },
+  async caricaFoto(file, dataUrl) { return { fotoUrl: dataUrl, fotoId: "" }; },
+  urlFoto(r) { return r.fotoUrl; },
+  async esegui() { throw new Error("Funziona solo quando il programma è collegato ad Appwrite."); },
+};
+
+function creaArchivioAppwrite() {
+  const { Client, Account, Databases, Storage, Functions, ID, Query, Permission, Role } = Appwrite;
+  const client = new Client().setEndpoint(CFG.endpoint).setProject(CFG.projectId);
+  const account = new Account(client), db = new Databases(client), storage = new Storage(client), funzioni = new Functions(client);
+  const squadra = Role.team(CFG.teamId);
+  const permessi = (r) => [Permission.read(squadra), Permission.update(squadra), Permission.delete(squadra), ...(r.pubblica ? [Permission.read(Role.any())] : [])];
+  return {
+    redattore: false,
+    async avvia() { try { await account.get(); this.redattore = true; } catch { this.redattore = false; } },
+    async accedi(email, password) { await account.createEmailPasswordSession(email, password); this.redattore = true; },
+    async esci() { await account.deleteSession("current"); this.redattore = false; },
+    async elenco() {
+      const tutte = []; let ultimo = null;
+      for (;;) {
+        const q = [Query.limit(100), Query.orderDesc("$createdAt")];
+        if (ultimo) q.push(Query.cursorAfter(ultimo));
+        const p = await db.listDocuments(CFG.databaseId, CFG.collectionId, q);
+        tutte.push(...p.documents);
+        if (p.documents.length < 100) break;
+        ultimo = p.documents[p.documents.length - 1].$id;
+      }
+      return tutte.map(normalize);
+    },
+    async salva(r) {
+      const dati = soloCampi(r);
+      const doc = r.id
+        ? await db.updateDocument(CFG.databaseId, CFG.collectionId, r.id, dati, permessi(r))
+        : await db.createDocument(CFG.databaseId, CFG.collectionId, ID.unique(), dati, permessi(r));
+      return normalize(doc);
+    },
+    async elimina(r) {
+      await db.deleteDocument(CFG.databaseId, CFG.collectionId, r.id);
+      if (r.fotoId) { try { await storage.deleteFile(CFG.bucketId, r.fotoId); } catch {} }
+    },
+    async caricaFoto(file) { const f = await storage.createFile(CFG.bucketId, ID.unique(), file); return { fotoId: f.$id, fotoUrl: "" }; },
+    urlFoto(r) { return r.fotoId ? String(storage.getFileView(CFG.bucketId, r.fotoId)) : r.fotoUrl; },
+    async esegui(nome, corpo) {
+      const e = await funzioni.createExecution(nome, JSON.stringify(corpo), false, "/", "POST", { "content-type": "application/json" });
+      let risposta = null;
+      try { risposta = JSON.parse(e.responseBody); } catch {}
+      if (!risposta) throw new Error("Il server non ha risposto in tempo. Riprova.");
+      if (!risposta.ok) throw new Error(risposta.errore || "Operazione non riuscita.");
+      return risposta.ricetta;
+    },
+  };
+}
+const archivio = COLLEGATO ? creaArchivioAppwrite() : archivioLocale;
+
+/* ---------- Elenco e filtri ---------- */
+let ricette = [];
+const stelle = (n) => `<span class="stelle" aria-label="${n} stelle su 5">${"★".repeat(n)}<span class="vuota">${"★".repeat(5 - n)}</span></span>`;
+
+function filtrate() {
+  const t = $("fTesto").value.trim().toLowerCase(), c = $("fCategoria").value, s = +$("fStelle").value;
+  return ricette.filter((r) =>
+    (!c || r.categorie.includes(c)) && r.stelle >= s &&
+    (!t || [r.titolo, r.fonte, ...r.ingredienti, ...r.categorie].join(" ").toLowerCase().includes(t)));
+}
+
+function disegna() {
+  const scelta = $("fCategoria").value;
+  const cat = [...new Set([...CATEGORIE_BASE, ...ricette.flatMap((r) => r.categorie)])].sort((a, b) => a.localeCompare(b, "it"));
+  $("fCategoria").innerHTML = `<option value="">Tutte le categorie</option>` + cat.map((c) => `<option${c === scelta ? " selected" : ""}>${esc(c)}</option>`).join("");
+  const l = filtrate();
+  $("elenco").innerHTML = l.length ? l.map((r) => {
+    const foto = soloHttp(archivio.urlFoto(r)) || (String(r.fotoUrl).startsWith("data:image/") ? r.fotoUrl : "");
+    return `<article class="scheda" data-id="${esc(r.id)}" tabindex="0">
+      <div class="foto">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : "🍝"}</div>
+      <div class="testo"><h3>${esc(r.titolo)}</h3>${stelle(r.stelle)}
+      <div class="etichette">${r.categorie.map((c) => `<span class="etichetta">${esc(c)}</span>`).join("")}${archivio.redattore && !r.pubblica ? `<span class="etichetta privata">privata</span>` : ""}</div></div>
+    </article>`;
+  }).join("") : `<div class="vuoto" style="grid-column:1/-1">${ricette.length ? "Nessuna ricetta corrisponde alla ricerca." : "Non ci sono ancora ricette."}</div>`;
+}
+
+async function ricarica() {
+  try { ricette = await archivio.elenco(); }
+  catch (e) { ricette = []; mostraAvviso("Non riesco a leggere le ricette dal server: " + e.message); }
+  disegna();
+}
+
+function mostraAvviso(t) { $("avviso").textContent = t; $("avviso").hidden = !t; }
+function chiudi() { $("finestre").innerHTML = ""; }
+function apri(html) {
+  $("finestre").innerHTML = `<div class="velo"><div class="finestra">${html}</div></div>`;
+  $("finestre").firstChild.addEventListener("mousedown", (e) => { if (e.target.classList.contains("velo")) chiudi(); });
+}
+
+/* ---------- Scheda di una ricetta ---------- */
+function mostra(r) {
+  const foto = soloHttp(archivio.urlFoto(r)) || (String(r.fotoUrl).startsWith("data:image/") ? r.fotoUrl : "");
+  const link = soloHttp(r.link);
+  apri(`<div class="dettaglio">
+    ${foto ? `<img src="${esc(foto)}" alt="">` : ""}
+    <h2>${esc(r.titolo)}</h2>
+    <div class="riga">${stelle(r.stelle)}<span class="etichette">${r.categorie.map((c) => `<span class="etichetta">${esc(c)}</span>`).join("")}</span></div>
+    <p style="color:var(--tenue);font:.88rem system-ui,sans-serif">${[r.tempo && "Tempo: " + esc(r.tempo), r.porzioni && "Porzioni: " + esc(r.porzioni), r.fonte && "Fonte: " + esc(r.fonte)].filter(Boolean).join(" · ")}</p>
+    ${link ? `<p><a href="${esc(link)}" target="_blank" rel="noopener noreferrer">Apri la ricetta originale ↗</a></p>` : ""}
+    ${r.ingredienti.length ? `<h3>Ingredienti</h3><ul>${r.ingredienti.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}
+    ${r.procedimento ? `<h3>Procedimento</h3><p class="passi">${esc(r.procedimento)}</p>` : ""}
+    ${r.note ? `<h3>Note</h3><p class="passi">${esc(r.note)}</p>` : ""}
+    <div class="riga" style="margin-top:16px">
+      ${archivio.redattore ? `<button class="btn primo" id="dModifica">Modifica</button><button class="btn pericolo" id="dElimina">Elimina</button>` : ""}
+      <button class="btn" id="dChiudi">Chiudi</button>
+    </div></div>`);
+  $("dChiudi").onclick = chiudi;
+  if (archivio.redattore) {
+    $("dModifica").onclick = () => modifica(r);
+    $("dElimina").onclick = async () => {
+      if (!confirm("Eliminare «" + r.titolo + "»? Non si può annullare.")) return;
+      try { await archivio.elimina(r); chiudi(); await ricarica(); } catch (e) { alert("Non eliminata: " + e.message); }
+    };
+  }
+}
+
+/* ---------- Foto: rimpicciolita prima di essere salvata o letta ---------- */
+function rimpicciolisci(file, lato = 1600) {
+  return new Promise((ok, ko) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, lato / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const dataUrl = c.toDataURL("image/jpeg", 0.82);
+      c.toBlob((b) => ok({ dataUrl, file: new File([b], "foto.jpg", { type: "image/jpeg" }) }), "image/jpeg", 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); ko(new Error("Non riesco ad aprire questa immagine.")); };
+    img.src = url;
+  });
+}
+
+/* ---------- Nuova ricetta / modifica ---------- */
+function modifica(originale) {
+  const r = normalize(originale || { pubblica: false });
+  let fotoNuova = null; // { dataUrl, file }
+  apri(`<h2>${r.id ? "Modifica ricetta" : "Nuova ricetta"}</h2>
+    <div class="importa">
+      <div class="campo"><label for="mLink">Link della ricetta</label>
+        <div class="riga"><input id="mLink" type="url" placeholder="https://…" style="flex:1;min-width:180px"><button class="btn" id="mLeggiLink">Leggi dal link</button></div></div>
+      <div class="riga"><label class="btn" for="mFotoRicetta">📷 Fotografa una ricetta e leggila</label>
+        <input id="mFotoRicetta" type="file" accept="image/*" capture="environment" hidden>
+        <span class="messaggio" id="mStato"></span></div>
+    </div>
+    <div class="dubbi" id="mDubbi" hidden></div>
+    <div class="campo"><label for="mTitolo">Titolo *</label><input id="mTitolo"></div>
+    <div class="campo"><label>Stelle</label><div class="scegli-stelle" id="mStelle"></div></div>
+    <div class="campo"><label for="mCategorie">Categorie (separate da virgola)</label><input id="mCategorie" list="mElencoCat"><datalist id="mElencoCat"></datalist></div>
+    <div class="campo"><label for="mIngredienti">Ingredienti (uno per riga)</label><textarea id="mIngredienti"></textarea></div>
+    <div class="campo"><label for="mProcedimento">Procedimento</label><textarea id="mProcedimento"></textarea></div>
+    <div class="due"><div class="campo"><label for="mTempo">Tempo</label><input id="mTempo"></div><div class="campo"><label for="mPorzioni">Porzioni</label><input id="mPorzioni"></div></div>
+    <div class="campo"><label for="mNote">Le nostre note</label><textarea id="mNote" style="min-height:60px"></textarea></div>
+    <div class="campo"><label for="mFoto">Foto del piatto</label><input id="mFoto" type="file" accept="image/*"></div>
+    <div class="campo"><label><input type="checkbox" id="mPubblica"> Visibile ai clienti (lasciare spento per le ricette copiate da altri siti o libri)</label></div>
+    <div class="messaggio" id="mErrore"></div>
+    <div class="riga"><button class="btn primo" id="mSalva">Salva</button><button class="btn" id="mAnnulla">Annulla</button></div>`);
+
+  const riempi = (d) => {
+    $("mLink").value = d.link ?? $("mLink").value; $("mTitolo").value = d.titolo || "";
+    $("mCategorie").value = (d.categorie || []).join(", "); $("mIngredienti").value = (d.ingredienti || []).join("\n");
+    $("mProcedimento").value = d.procedimento || ""; $("mTempo").value = d.tempo || ""; $("mPorzioni").value = d.porzioni || "";
+  };
+  riempi(r); $("mNote").value = r.note; $("mPubblica").checked = r.pubblica;
+  $("mElencoCat").innerHTML = [...new Set([...CATEGORIE_BASE, ...ricette.flatMap((x) => x.categorie)])].map((c) => `<option value="${esc(c)}">`).join("");
+  const disegnaStelle = () => {
+    $("mStelle").innerHTML = [1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" class="${n <= r.stelle ? "piena" : ""}" aria-label="${n} stelle">★</button>`).join("");
+  };
+  disegnaStelle();
+  $("mStelle").onclick = (e) => { const n = +e.target.dataset.n; if (n) { r.stelle = r.stelle === n ? 0 : n; disegnaStelle(); } };
+  $("mAnnulla").onclick = chiudi;
+  const stato = (t) => { $("mStato").textContent = t; };
+  const occupato = (si) => ["mLeggiLink", "mSalva"].forEach((b) => { $(b).disabled = si; });
+
+  $("mLeggiLink").onclick = async () => {
+    const url = soloHttp($("mLink").value);
+    if (!url) return stato("Scrivi un indirizzo che comincia con https://");
+    occupato(true); stato("Leggo il sito…");
+    try {
+      const d = await archivio.esegui(CFG.fnLink, { url });
+      riempi({ ...d, link: url }); r.fonte = d.fonte || r.fonte; r.fotoUrl = d.fotoUrl || r.fotoUrl;
+      stato(d.trovata ? "Letta. Controlla i dati prima di salvare." : "Questo sito non dichiara la ricetta: ho preso solo titolo e immagine.");
+    } catch (e) { stato(e.message); }
+    occupato(false);
+  };
+
+  $("mFotoRicetta").onchange = async (ev) => {
+    const file = ev.target.files[0]; if (!file) return;
+    occupato(true); stato("Leggo la foto… (può servire mezzo minuto)");
+    try {
+      const f = await rimpicciolisci(file);
+      const d = await archivio.esegui(CFG.fnFoto, { tipo: "image/jpeg", immagine: f.dataUrl.split(",")[1] });
+      riempi(d);
+      const dubbi = (d.dubbi || []).filter(Boolean);
+      $("mDubbi").hidden = false;
+      $("mDubbi").innerHTML = "<b>Letta dall'intelligenza artificiale: controlla tutto, soprattutto le quantità.</b>" +
+        (dubbi.length ? "<ul>" + dubbi.map((x) => `<li>${esc(x)}</li>`).join("") + "</ul>" : "");
+      stato("");
+    } catch (e) { stato(e.message); }
+    occupato(false); ev.target.value = "";
+  };
+
+  $("mFoto").onchange = async (ev) => {
+    const file = ev.target.files[0]; if (!file) return;
+    try { fotoNuova = await rimpicciolisci(file, 1200); } catch (e) { $("mErrore").textContent = e.message; }
+  };
+
+  $("mSalva").onclick = async () => {
+    const dati = {
+      ...r, titolo: $("mTitolo").value.trim(), link: soloHttp($("mLink").value),
+      categorie: virgole($("mCategorie").value), ingredienti: righe($("mIngredienti").value),
+      procedimento: $("mProcedimento").value.trim(), note: $("mNote").value.trim(),
+      tempo: $("mTempo").value.trim(), porzioni: $("mPorzioni").value.trim(), pubblica: $("mPubblica").checked,
+    };
+    if (!dati.titolo) { $("mErrore").textContent = "Manca il titolo."; return; }
+    if ($("mLink").value.trim() && !dati.link) { $("mErrore").textContent = "Il link deve cominciare con https://"; return; }
+    if (dati.link && !dati.fonte) { try { dati.fonte = new URL(dati.link).hostname.replace(/^www\./, ""); } catch {} }
+    occupato(true); $("mErrore").textContent = "";
+    try {
+      if (fotoNuova) Object.assign(dati, await archivio.caricaFoto(fotoNuova.file, fotoNuova.dataUrl));
+      await archivio.salva(dati); chiudi(); await ricarica();
+    } catch (e) { $("mErrore").textContent = "Non salvata: " + e.message; occupato(false); }
+  };
+}
+
+/* ---------- Accesso ---------- */
+function finestraAccesso() {
+  apri(`<h2>Accesso per la redazione</h2>
+    <div class="campo"><label for="aEmail">Email</label><input id="aEmail" type="email" autocomplete="username"></div>
+    <div class="campo"><label for="aPassword">Password</label><input id="aPassword" type="password" autocomplete="current-password"></div>
+    <div class="messaggio" id="aErrore"></div>
+    <div class="riga"><button class="btn primo" id="aEntra">Entra</button><button class="btn" id="aAnnulla">Annulla</button></div>`);
+  $("aAnnulla").onclick = chiudi;
+  $("aEntra").onclick = async () => {
+    try { await archivio.accedi($("aEmail").value.trim(), $("aPassword").value); chiudi(); aggiornaTesta(); await ricarica(); }
+    catch { $("aErrore").textContent = "Email o password non corrette."; }
+  };
+}
+function aggiornaTesta() {
+  $("btnNuova").hidden = !archivio.redattore;
+  $("btnAccesso").hidden = !COLLEGATO;
+  $("btnAccesso").textContent = archivio.redattore ? "Esci" : "Accedi";
+}
+
+/* ---------- Avvio ---------- */
+$("versione").textContent = "versione " + VERSION + " del " + VERSION_DATE;
+$("btnNuova").onclick = () => modifica(null);
+$("btnAccesso").onclick = async () => {
+  if (!archivio.redattore) return finestraAccesso();
+  try { await archivio.esci(); } catch {}
+  aggiornaTesta(); await ricarica();
+};
+["fTesto", "fCategoria", "fStelle"].forEach((id) => $(id).addEventListener("input", disegna));
+$("elenco").addEventListener("click", (e) => {
+  const s = e.target.closest(".scheda"); const r = s && ricette.find((x) => x.id === s.dataset.id);
+  if (r) mostra(r);
+});
+$("elenco").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.click(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") chiudi(); });
+(async () => {
+  if (!COLLEGATO) mostraAvviso("Modalità prova: le ricette restano solo su questo dispositivo. Lettura da link e da foto non attive finché il programma non è collegato ad Appwrite.");
+  await archivio.avvia(); aggiornaTesta(); await ricarica();
+})();
+</script>
+</body>
+</html>

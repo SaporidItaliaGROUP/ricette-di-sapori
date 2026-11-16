@@ -1,0 +1,6 @@
+{
+  "name": "ricette-di-sapori",
+  "private": true,
+  "type": "module",
+  "scripts": { "prova": "node prove/prova.mjs" }
+}

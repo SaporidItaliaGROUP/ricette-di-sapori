@@ -1,0 +1,6 @@
+{
+  "name": "importa-link",
+  "private": true,
+  "type": "module",
+  "main": "src/main.js"
+}
