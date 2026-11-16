@@ -3,7 +3,7 @@
 // i dati restano solo nel browser di questo dispositivo.
 window.RICETTE_CONFIG = {
   endpoint: "https://fra.cloud.appwrite.io/v1",
-  projectId: "",
+  projectId: "6afaec92001e6fb9cc6e",
   databaseId: "ricette",
   collectionId: "ricette",
   bucketId: "foto",

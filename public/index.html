@@ -128,9 +128,9 @@ const archivioLocale = {
 };
 
 function creaArchivioAppwrite() {
-  const { Client, Account, Databases, Storage, Functions, ID, Query, Permission, Role } = Appwrite;
+  const { Client, Account, TablesDB, Storage, Functions, ID, Query, Permission, Role } = Appwrite;
   const client = new Client().setEndpoint(CFG.endpoint).setProject(CFG.projectId);
-  const account = new Account(client), db = new Databases(client), storage = new Storage(client), funzioni = new Functions(client);
+  const account = new Account(client), db = new TablesDB(client), storage = new Storage(client), funzioni = new Functions(client);
   const squadra = Role.team(CFG.teamId);
   const permessi = (r) => [Permission.read(squadra), Permission.update(squadra), Permission.delete(squadra), ...(r.pubblica ? [Permission.read(Role.any())] : [])];
   return {
@@ -143,22 +143,22 @@ function creaArchivioAppwrite() {
       for (;;) {
         const q = [Query.limit(100), Query.orderDesc("$createdAt")];
         if (ultimo) q.push(Query.cursorAfter(ultimo));
-        const p = await db.listDocuments(CFG.databaseId, CFG.collectionId, q);
-        tutte.push(...p.documents);
-        if (p.documents.length < 100) break;
-        ultimo = p.documents[p.documents.length - 1].$id;
+        const p = await db.listRows(CFG.databaseId, CFG.collectionId, q);
+        tutte.push(...p.rows);
+        if (p.rows.length < 100) break;
+        ultimo = p.rows[p.rows.length - 1].$id;
       }
       return tutte.map(normalize);
     },
     async salva(r) {
       const dati = soloCampi(r);
       const doc = r.id
-        ? await db.updateDocument(CFG.databaseId, CFG.collectionId, r.id, dati, permessi(r))
-        : await db.createDocument(CFG.databaseId, CFG.collectionId, ID.unique(), dati, permessi(r));
+        ? await db.updateRow(CFG.databaseId, CFG.collectionId, r.id, dati, permessi(r))
+        : await db.createRow(CFG.databaseId, CFG.collectionId, ID.unique(), dati, permessi(r));
       return normalize(doc);
     },
     async elimina(r) {
-      await db.deleteDocument(CFG.databaseId, CFG.collectionId, r.id);
+      await db.deleteRow(CFG.databaseId, CFG.collectionId, r.id);
       if (r.fotoId) { try { await storage.deleteFile(CFG.bucketId, r.fotoId); } catch {} }
     },
     async caricaFoto(file) { const f = await storage.createFile(CFG.bucketId, ID.unique(), file); return { fotoId: f.$id, fotoUrl: "" }; },

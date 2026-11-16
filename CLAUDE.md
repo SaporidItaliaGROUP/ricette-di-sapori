@@ -38,10 +38,18 @@ solo la redazione (Claudio e Veronique) aggiunge e modifica.
 - Versione e data sono in cima al programma (`VERSION`, `VERSION_DATE`): aggiornarle a ogni pubblicazione.
 - Se si aggiunge una funzione, aggiungere la sua prova.
 
-## Stato al 16/11/2026 (versione 0.1, non pubblicata)
+## Appwrite (versione 2 del servizio)
+
+- Progetto `6afaec92001e6fb9cc6e`, regione Francoforte (`https://fra.cloud.appwrite.io/v1`).
+- La tabella si crea e si usa con i comandi nuovi «TablesDB» (tabelle, righe, colonne), non con i vecchi «collections/documents»: la chiave API del progetto non ha i permessi vecchi.
+- Le funzioni si caricano con `POST /functions/<nome>/deployments` (archivio .tar.gz della cartella, senza `node_modules`).
+- La chiave `ANTHROPIC_API_KEY` va messa a mano nelle variabili della funzione `leggi-foto` dal pannello Appwrite.
+
+## Stato al 16/11/2026 (versione 0.1, sito non pubblicato)
 
 - Provato in automatico, in modalità prova: aggiungere, modificare, eliminare, stelle, ricerca per ingrediente, filtri, dati che restano dopo il ricaricamento; lettura di una pagina web finta.
-- **Mai provato sul servizio vero**: tutto il collegamento ad Appwrite (accesso, salvataggio, foto, permessi), la lettura da link su siti reali, la lettura delle foto con l'intelligenza artificiale.
-- Mancano: creazione di database, raccolta, archivio foto, squadra e funzioni su Appwrite; scelta di dove pubblicare il sito.
-- Dubbi da verificare: tempo massimo di una funzione Appwrite chiamata dal browser (la lettura di una foto potrebbe superarlo); dimensione massima della foto inviata alla funzione; Appwrite ha annunciato la versione 2.0 e i nomi delle sue funzioni potrebbero essere cambiati.
+- Fatto e controllato sul servizio vero: squadra `redazione`, database e tabella `ricette` con tutti i campi, archivio `foto`, funzioni `importa-link` e `leggi-foto` caricate; una riga di prova creata ed eliminata con la chiave di amministratore; `importa-link` risponde e rifiuta chi non ha fatto l'accesso.
+- **Mai provato dal browser sul servizio vero**: accesso con email e password, salvataggio e foto fatti da un utente, ricette private invisibili ai clienti, lettura da link su siti reali, lettura delle foto con l'intelligenza artificiale (manca la chiave). Dall'ambiente di sviluppo non si può: ogni richiesta parte come amministratore.
+- Mancano: utenti della redazione, chiave dell'intelligenza artificiale, pubblicazione del sito.
+- Dubbi da verificare: tempo massimo di una funzione chiamata dal browser (la lettura di una foto potrebbe superarlo); dimensione massima della foto inviata alla funzione.
 - Schermate solo in italiano: i clienti di Dakar leggono il francese (da decidere).

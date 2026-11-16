@@ -51,6 +51,8 @@ const errori = [];
 p.on("pageerror", (e) => errori.push(String(e)));
 p.on("console", (m) => { if (m.type() === "error") errori.push(m.text()); });
 p.on("dialog", (d) => d.accept());
+// Le prove girano in modalità prova: al posto di config.js ne usiamo uno senza progetto.
+await p.route("**/config.js", (r) => r.fulfill({ contentType: "text/javascript", body: "window.RICETTE_CONFIG = { projectId: '' };" }));
 await p.goto(indirizzo);
 
 prova("avviso di modalità prova visibile", await p.locator("#avviso").isVisible());
