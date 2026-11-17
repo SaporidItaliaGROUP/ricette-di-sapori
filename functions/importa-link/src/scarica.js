@@ -47,6 +47,11 @@ export async function scaricaPagina(url) {
     }
     if (r.status === 401 || r.status === 403 || r.status === 429) throw new ErroreLettura("Il sito rifiuta le letture automatiche (errore " + r.status + "). La ricetta va inserita a mano.");
     if (!r.ok) throw new ErroreLettura("Il sito ha risposto con un errore (" + r.status + ").");
+    // Rimandati a una pagina di accesso: la pagina vera non è visibile senza entrare (succede con i social).
+    if (attuale !== url && /\/(login|log-in|signin|sign-in|accounts\/login|checkpoint|authwall)\b/i.test(new URL(attuale).pathname)) {
+      try { await r.body?.cancel(); } catch {}
+      throw new ErroreLettura("Questa pagina si vede solo dopo aver fatto l'accesso al sito: non posso leggerla.");
+    }
     const tipo = r.headers.get("content-type") || "";
     if (tipo && !/html|xml|text\/plain/i.test(tipo)) throw new ErroreLettura("Questo indirizzo non è una pagina web (è un file di altro tipo).", 400);
 

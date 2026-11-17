@@ -338,14 +338,18 @@ function modifica(originale) {
     const url = soloHttp($("mLink").value);
     if (!url) return stato("Scrivi un indirizzo che comincia con https://");
     occupato(true); stato("Leggo il sito…");
+    const social = /(^|\.)(facebook\.com|fb\.watch|instagram\.com|tiktok\.com|youtube\.com|youtu\.be)$/i.test(new URL(url).hostname);
     try {
       const d = await archivio.esegui(CFG.fnLink, { url });
       if (!d.trovata) {
-        // Niente dati leggibili: non si tocca quello che è già scritto, si propongono solo titolo e foto.
-        if (!$("mTitolo").value.trim()) $("mTitolo").value = d.titolo || "";
-        if (!r.fotoId && !r.fotoUrl) r.fotoUrl = soloHttp(d.fotoUrl);
+        // Niente dati leggibili: non si tocca quello che è già scritto, si propongono solo titolo, foto e descrizione.
+        const preso = [];
+        if (!$("mTitolo").value.trim() && d.titolo) { $("mTitolo").value = d.titolo; preso.push("il titolo"); }
+        if (!r.fotoId && !r.fotoUrl && soloHttp(d.fotoUrl)) { r.fotoUrl = soloHttp(d.fotoUrl); preso.push("l'immagine di anteprima"); }
+        if (!$("mProcedimento").value.trim() && d.descrizione) { $("mProcedimento").value = d.descrizione; preso.push("la descrizione (messa nel procedimento: va sistemata a mano)"); }
         r.fonte = d.fonte || r.fonte; disegnaAnteprima();
-        avvisi("Questa pagina non contiene una ricetta leggibile in automatico.", ["Ho preso solo il titolo e l'immagine.", "Ingredienti e procedimento vanno scritti a mano: puoi copiarli dalla pagina originale."]);
+        avvisi(d.sociale || social ? "Link di un social: la ricetta sta nel video o nel post, non si può leggere in automatico." : "Questa pagina non contiene una ricetta leggibile in automatico.",
+          [preso.length ? "Ho preso solo: " + preso.join(", ") + "." : "Non sono riuscito a prendere nemmeno titolo e immagine.", "Il link resta nella scheda. Ingredienti e passaggi vanno scritti o incollati a mano."]);
         stato("Ricetta non letta: inseriscila a mano.");
       } else {
         riempi({ ...d, link: url }); r.fonte = d.fonte || r.fonte;
@@ -354,7 +358,12 @@ function modifica(originale) {
         avvisi("Letta dal sito " + (d.fonte || "") + ": controlla i dati prima di salvare.", [...(d.avvisi || []).filter(Boolean), "Testi e foto sono del sito originale: la ricetta resta privata, per uso interno."]);
         stato("Letta. Controlla i dati prima di salvare.");
       }
-    } catch (e) { stato(e.message); }
+    } catch (e) {
+      // Lettura non riuscita: il link resta nella scheda e si può salvare lo stesso, scrivendo il resto a mano.
+      avvisi(social ? "Non sono riuscito a leggere questo link: i social spesso rifiutano le letture automatiche." : "Non sono riuscito a leggere questa pagina.",
+        [e.message, "Il link resta nella scheda: puoi salvarla lo stesso scrivendo o incollando a mano titolo, ingredienti e passaggi."]);
+      stato("Ricetta non letta: inseriscila a mano.");
+    }
     occupato(false);
   };
 

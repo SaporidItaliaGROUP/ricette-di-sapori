@@ -8,7 +8,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { estraiRicetta, indirizzoPermesso, ipRiservato, durata } from "../functions/importa-link/src/estrai.js";
+import { estraiRicetta, indirizzoPermesso, ipRiservato, durata, eSocial } from "../functions/importa-link/src/estrai.js";
 import { scaricaPagina, dipendenze, MAX_BYTE } from "../functions/importa-link/src/scarica.js";
 import importaLink from "../functions/importa-link/src/main.js";
 
@@ -54,6 +54,8 @@ e = await esempio("scheda-povera.html");
 prova("scheda incompleta: dice cosa manca e non inventa niente", e.trovata && e.ingredienti.length === 3 && e.procedimento === "" && e.tempo === "" && e.porzioni === "" && e.fotoUrl === "" && e.avvisi.length === 3);
 e = await esempio("senza-ricetta.html");
 prova("pagina senza ricetta: solo titolo e immagine, niente inventato", !e.trovata && e.titolo === "Dieci idee per la cena" && e.ingredienti.length === 0 && e.procedimento === "" && e.fotoUrl === "https://rivista-prova.it/cena.jpg");
+e = estraiRicetta(await readFile(path.join(qui, "pagine", "social-video.html"), "utf8"), "https://www.facebook.com/share/r/abc/");
+prova("link di un social: riconosciuto, solo titolo, anteprima e descrizione, nessun ingrediente inventato", !e.trovata && e.sociale && e.titolo.startsWith("Pasta al forno") && e.descrizione.includes("500 g di rigatoni, 400 g di ragù") && e.fotoUrl.endsWith("anteprima.jpg") && e.ingredienti.length === 0 && eSocial("https://fb.watch/x") && eSocial("https://www.instagram.com/reel/x") && !eSocial("https://www.giallozafferano.it/"));
 const lunga = estraiRicetta(`<script type="application/ld+json">${JSON.stringify({ "@type": "Recipe", name: "x".repeat(900), recipeIngredient: Array(500).fill("y".repeat(900)), recipeInstructions: "z".repeat(50000) })}</script>`, "https://x.it");
 prova("testi troppo lunghi accorciati alle misure della tabella", lunga.titolo.length <= 300 && lunga.ingredienti.length <= 150 && lunga.ingredienti[0].length <= 300 && lunga.procedimento.length <= 20000);
 
@@ -67,6 +69,8 @@ const INTERNET = {
   "https://giro.it/": () => new Response(null, { status: 302, headers: { location: "https://giro.it/" } }),
   "https://enorme.it/": () => new Response("<html>" + "a".repeat(MAX_BYTE + 500000), { headers: { "content-type": "text/html" } }),
   "https://file.it/foto.jpg": () => new Response("xx", { headers: { "content-type": "image/jpeg" } }),
+  "https://social.it/reel/1": () => new Response(null, { status: 302, headers: { location: "https://social.it/login/?next=reel" } }),
+  "https://social.it/login/?next=reel": () => new Response("<title>Accedi</title>", { headers: { "content-type": "text/html" } }),
   "https://chiuso.it/": () => new Response("no", { status: 403 }),
   "https://vecchio.fr/": () => new Response(Buffer.from("<title>Cr\xe8me br\xfbl\xe9e</title>", "latin1"), { headers: { "content-type": "text/html; charset=iso-8859-1" } }),
 };
@@ -83,6 +87,7 @@ prova("rimandi senza fine: si ferma", (await errore("https://giro.it/")).include
 prova("pagina enorme: tagliata al limite", (await scaricaPagina("https://enorme.it/")).html.length === MAX_BYTE);
 prova("un file che non è una pagina viene rifiutato", (await errore("https://file.it/foto.jpg")).includes("non è una pagina"));
 prova("sito che rifiuta le letture automatiche: lo dice", (await errore("https://chiuso.it/")).includes("rifiuta"));
+prova("pagina che rimanda all'accesso: lo dice e non prende il titolo «Accedi»", (await errore("https://social.it/reel/1")).includes("accesso"));
 prova("pagina con vecchia codifica francese: accenti giusti", (await scaricaPagina("https://vecchio.fr/")).html.includes("Crème brûlée"));
 const chiama = async (intestazioni, corpo) => { let out; await importaLink({ req: { headers: intestazioni, bodyJson: corpo }, res: { json: (d, c = 200) => (out = { ...d, codice: c }) }, error() {} }); return out; };
 prova("funzione: senza accesso rifiuta", (await chiama({}, { url: "https://buono.it/ricetta" })).codice === 401);
@@ -101,8 +106,9 @@ const server = http.createServer(async (req, res) => {
   if (req.url === "/finto/importa-link") {
     let corpo = ""; for await (const c of req) corpo += c;
     const url = JSON.parse(corpo).url, nome = path.basename(new URL(url).pathname);
+    if (nome === "bloccato") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, errore: "Questa pagina si vede solo dopo aver fatto l'accesso al sito: non posso leggerla." })); }
     res.writeHead(200, { "content-type": "application/json" });
-    try { return res.end(JSON.stringify({ ok: true, ricetta: estraiRicetta(await readFile(path.join(qui, "pagine", nome), "utf8"), url) })); }
+    try { return res.end(JSON.stringify({ ok: true, ricetta: estraiRicetta(await readFile(path.join(qui, "pagine", nome.replace(/^reel-/, "")), "utf8"), url) })); }
     catch { return res.end(JSON.stringify({ ok: false, errore: "Il sito ha risposto con un errore (404)." })); }
   }
   const f = path.join(qui, "../public", req.url === "/" ? "index.html" : req.url.split("?")[0]);
@@ -197,10 +203,30 @@ await leggi("senza-ricetta.html", "inseriscila a mano");
 prova("pagina senza ricetta: lo dice, propone solo il titolo, non cancella quello già scritto", (await p.locator("#mDubbi").textContent()).includes("non contiene una ricetta leggibile") && (await p.inputValue("#mTitolo")) === "Dieci idee per la cena" && (await p.inputValue("#mIngredienti")) === "scritto a mano" && (await p.inputValue("#mProcedimento")) === "");
 await leggi("scheda-povera.html", "Letta.");
 prova("scheda incompleta: quello che manca è in evidenza", (await p.locator("#mDubbi li").allTextContents()).some((t) => t.includes("procedimento")) && (await p.inputValue("#mProcedimento")) === "");
-await leggi("non-esiste.html", "errore (404)");
-prova("sito che risponde con un errore: messaggio chiaro, dati lasciati come sono", (await p.inputValue("#mTitolo")) === "Insalata caprese");
-await p.click("#mTogliFoto").catch(() => {});
+await leggi("non-esiste.html", "inseriscila a mano");
+prova("sito che risponde con un errore: messaggio chiaro, dati lasciati come sono", (await p.locator("#mDubbi").textContent()).includes("errore (404)") && (await p.inputValue("#mTitolo")) === "Insalata caprese");
 await p.click("#mAnnulla");
+
+// Link di un social (reel): si salva il link, il resto a mano.
+const leggiSocial = async (indirizzoSocial) => {
+  await p.fill("#mLink", indirizzoSocial);
+  await p.click("#mLeggiLink");
+  await p.waitForFunction(() => document.getElementById("mStato").textContent.includes("inseriscila a mano"));
+};
+await p.click("#btnNuova");
+await leggiSocial("https://www.facebook.com/share/r/reel-social-video.html");
+prova("reel con anteprima leggibile: titolo, immagine e descrizione proposti, ingredienti vuoti, avviso chiaro", (await p.locator("#mDubbi").textContent()).includes("Link di un social") && (await p.inputValue("#mTitolo")).startsWith("Pasta al forno") && (await p.inputValue("#mProcedimento")).includes("500 g di rigatoni") && (await p.inputValue("#mIngredienti")) === "" && (await p.locator("#mAnteprima img").getAttribute("src")).endsWith("anteprima.jpg"));
+await p.click("#mAnnulla");
+await p.click("#btnNuova");
+await leggiSocial("https://www.facebook.com/share/r/bloccato");
+prova("reel non leggibile: lo dice e lascia scrivere a mano", (await p.locator("#mDubbi").textContent()).includes("social spesso rifiutano") && (await p.locator("#mDubbi").textContent()).includes("Il link resta nella scheda") && (await p.inputValue("#mTitolo")) === "");
+await p.fill("#mTitolo", "Pasta del reel");
+await p.fill("#mIngredienti", "500 g di rigatoni\n400 g di ragù");
+await p.click("#mSalva");
+await p.waitForSelector(".velo", { state: "detached" });
+await p.click(".scheda >> text=Pasta del reel");
+prova("reel non leggibile: salvato lo stesso con il link e gli ingredienti scritti a mano", (await p.locator(".dettaglio a").getAttribute("href")) === "https://www.facebook.com/share/r/bloccato" && (await p.locator(".dettaglio li").count()) === 2 && (await p.locator(".dettaglio").textContent()).includes("Fonte: facebook.com"));
+await p.click("#dChiudi");
 await p.fill("#fTesto", "carbonàra ROMANA");
 prova("la ricerca non bada ad accenti e maiuscole", (await p.locator(".scheda").count()) === 1);
 prova("link al sito di Sapori d'Italia", (await p.locator("#btnSapori").getAttribute("href")) === "https://www.saporiditalia.club" && (await p.locator("#btnSapori").getAttribute("target")) === "_blank");
@@ -209,7 +235,7 @@ await p.fill("#fTesto", "");
 await p.click(".scheda >> text=Carbonara romana");
 await p.click("#dElimina");
 await p.waitForSelector(".velo", { state: "detached" });
-prova("eliminazione", (await p.locator(".scheda").count()) === 2);
+prova("eliminazione", (await p.locator(".scheda").count()) === 3);
 
 console.log("App installabile");
 const man = await p.evaluate(async () => (await fetch(document.querySelector('link[rel="manifest"]').href)).json());
@@ -219,7 +245,7 @@ prova("servizio in sottofondo attivo", await p.evaluate(async () => !!(await nav
 await p.waitForFunction(async () => (await caches.keys()).length > 0);
 await p.context().setOffline(true);
 await p.reload();
-prova("si apre anche senza rete", (await p.locator("header h1").textContent()).includes("Le ricette di Sapori") && (await p.locator(".scheda").count()) === 2);
+prova("si apre anche senza rete", (await p.locator("header h1").textContent()).includes("Le ricette di Sapori") && (await p.locator(".scheda").count()) === 3);
 await p.context().setOffline(false);
 await p.setViewportSize({ width: 390, height: 800 });
 prova("su iPhone il pulsante spiega come installare", await (async () => {

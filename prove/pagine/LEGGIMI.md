@@ -12,4 +12,5 @@ lettura senza rete. Una prova passata qui **non garantisce** che un sito vero ve
 | `scheda-sporca.html` | Dati scritti male: a capo dentro le frasi, commenti, codice HTML nei testi, foto con indirizzo relativo. |
 | `etichette-vecchie.html` | Nessuna scheda: solo etichette «microdata» nel testo (siti più vecchi). |
 | `scheda-povera.html` | Scheda con il solo elenco ingredienti, senza procedimento né tempi. |
+| `social-video.html` | Pagina di un video su un social: solo titolo, descrizione e immagine di anteprima. Non si sa se Facebook le dia davvero senza accesso. |
 | `senza-ricetta.html` | Un articolo di blog senza dati di ricetta. |

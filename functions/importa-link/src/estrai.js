@@ -14,7 +14,10 @@ const ENTITA = {
   Agrave: "À", Eacute: "É", Egrave: "È", Ecirc: "Ê", Ccedil: "Ç", OElig: "Œ",
 };
 // Lunghezze massime: sono quelle delle colonne della tabella su Appwrite.
-const MAX = { titolo: 300, ingrediente: 300, categoria: 60, procedimento: 20000, tempo: 60, porzioni: 60, fotoUrl: 2000, voci: 150 };
+// Social: lì la ricetta sta in un video o in un post, non in una scheda leggibile.
+const SOCIAL = /(^|\.)(facebook\.com|fb\.watch|fb\.com|instagram\.com|tiktok\.com|youtube\.com|youtu\.be|pinterest\.[a-z.]+|threads\.net|x\.com|twitter\.com)$/i;
+export const eSocial = (url) => { try { return SOCIAL.test(new URL(url).hostname); } catch { return false; } };
+const MAX = { descrizione: 3000, titolo: 300, ingrediente: 300, categoria: 60, procedimento: 20000, tempo: 60, porzioni: 60, fotoUrl: 2000, voci: 150 };
 
 const senzaTag = (t) => t.replace(/<\/?(?:b|i|u|em|strong|span|a|sup|sub|small|mark)\b[^>]*>/gi, "").replace(/<[^>]+>/g, " ");
 const punto = (n) => { try { return String.fromCodePoint(n); } catch { return ""; } };
@@ -167,7 +170,9 @@ export function estraiRicetta(html, url = "") {
   try { fonte = new URL(url).hostname.replace(/^www\./, ""); } catch {}
   const titoloPagina = taglia(meta(html, "og:title") || pulisci((/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html) || [])[1]), MAX.titolo);
   const fotoPagina = indirizzoAssoluto(meta(html, "og:image"), url);
-  const base = { trovata: false, metodo: "", avvisi: [], titolo: titoloPagina, fotoUrl: fotoPagina, fonte, categorie: [], ingredienti: [], procedimento: "", tempo: "", porzioni: "" };
+  // La descrizione della pagina (nei social spesso contiene il testo del post): solo come aiuto, da sistemare a mano.
+  const descrizione = taglia(meta(html, "og:description") || meta(html, "description"), MAX.descrizione);
+  const base = { trovata: false, sociale: eSocial(url), descrizione, metodo: "", avvisi: [], titolo: titoloPagina, fotoUrl: fotoPagina, fonte, categorie: [], ingredienti: [], procedimento: "", tempo: "", porzioni: "" };
 
   const candidate = [];
   for (const b of html.matchAll(/<script[^>]+type\s*=\s*["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi)) candidate.push(...cercaRicette(leggiJson(b[1])));
