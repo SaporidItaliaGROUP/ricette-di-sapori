@@ -17,7 +17,8 @@ solo la redazione (Claudio e Veronique) aggiunge e modifica.
 | `public/index.html` | Tutta l'applicazione in un solo file, JavaScript semplice, nessuna compilazione. |
 | `public/config.js` | Collegamento ad Appwrite (niente segreti). Con `projectId` vuoto il programma lavora in **modalità prova**: dati solo nel browser. |
 | `public/appwrite.js` | Libreria di Appwrite per il browser (versione 29.2.0). Non modificare. |
-| `functions/importa-link/` | Funzione Appwrite: legge una ricetta da un indirizzo web (scheda «schema.org Recipe»). |
+| `functions/importa-link/` | Funzione Appwrite: legge una ricetta da un indirizzo web. `src/estrai.js` ricava la ricetta dalla pagina (scheda «schema.org Recipe» in JSON-LD; etichette «microdata» come riserva); `src/scarica.js` scarica la pagina con le protezioni (solo siti pubblici, controllo a ogni rimando, limiti di tempo e dimensione). Può eseguirla solo la squadra `redazione` (impostazione su Appwrite). |
+| `prove/pagine/` | Pagine di esempio per le prove della lettura da link. **Scritte a mano, non sono siti veri.** |
 | `functions/leggi-foto/` | Funzione Appwrite: legge la foto di una ricetta con l'intelligenza artificiale (Claude). La chiave `ANTHROPIC_API_KEY` sta solo nelle variabili della funzione su Appwrite. |
 | `public/manifest.webmanifest`, `public/icona-*.png` | Scheda e icone dell'app installabile sul telefono. |
 | `public/sw.js` | Servizio in sottofondo: rende l'app installabile e apribile senza rete. Tiene in memoria solo le pagine, mai i dati. **Cambiare il numero `MEMORIA` a ogni pubblicazione**, insieme a `VERSION`. |
@@ -39,6 +40,9 @@ solo la redazione (Claudio e Veronique) aggiunge e modifica.
 - Le ricette nascono **private**: diventano visibili ai clienti solo se la redazione lo sceglie (attenzione ai diritti d'autore di testi e foto altrui).
 - Versione e data sono in cima al programma (`VERSION`, `VERSION_DATE`): aggiornarle a ogni pubblicazione.
 - Se si aggiunge una funzione, aggiungere la sua prova.
+- La lettura da link **non inventa mai**: se il sito non dichiara un dato, il campo resta vuoto e l'avviso lo dice. I testi letti vengono accorciati alle misure delle colonne della tabella.
+- Le ricette lette da un sito sono per uso interno: restano private. Nessun collegamento tra ingredienti e catalogo prodotti (deciso dal proprietario): c'è solo il pulsante «Apri il sito di Sapori d'Italia» (https://www.saporiditalia.club).
+- Non copiare codice da progetti con licenza AGPL/GPL (Mealie, Tandoor, KitchenOwl…).
 
 ## Appwrite (versione 2 del servizio)
 
@@ -58,4 +62,6 @@ solo la redazione (Claudio e Veronique) aggiunge e modifica.
 - Versione 0.2 (app installabile sul telefono, pulsante «Installa l'app», apertura senza rete): scritta e provata in automatico, **non pubblicata**. L'installazione su un telefono vero non è stata provata. Senza rete si apre il programma ma non si vedono le ricette (stanno sul server).
 - L'indirizzo gratuito `appwrite.network` viene bloccato da Avast sul computer del proprietario: per i clienti serve un indirizzo proprio (es. `ricette.saporiditalia.club`).
 - Dubbi da verificare: tempo massimo di una funzione chiamata dal browser (la lettura di una foto potrebbe superarlo); dimensione massima della foto inviata alla funzione.
+- Versione 0.3 del 17/11/2026 (ramo `claude/importazione-dal-web`, **non pubblicata, funzione non caricata su Appwrite**): lettura da link più robusta (schede annidate o scritte male, siti francesi, metodo di riserva per siti vecchi), avvisi su cosa manca, anteprima della foto del sito, protezioni dello scaricamento, ricerca che non bada agli accenti, pulsante verso il sito di Sapori. Provata solo in automatico su pagine di esempio scritte a mano e con una rete finta: **mai provata su un sito vero** (dall'ambiente di sviluppo i siti di cucina sono bloccati). Da fare: farsi dare dal proprietario 4-5 siti che usa, caricare la funzione su Appwrite con il suo «ok» e misurare quanti siti vengono letti (GialloZafferano, Cucchiaio d'Argento, Marmiton e i suoi). Alcuni siti potrebbero rifiutare le letture automatiche.
+- Le foto delle ricette lette da link non vengono copiate: si mostra quella del sito originale (se il sito la toglie o la blocca, sparisce).
 - Schermate solo in italiano: i clienti di Dakar leggono il francese (da decidere).

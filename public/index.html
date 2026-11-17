@@ -20,7 +20,7 @@ header h1{margin:0;font-size:1.45rem;font-weight:normal;font-style:italic;flex:1
 header small{display:block;font-style:normal;font-size:.72rem;opacity:.85;font-family:system-ui,sans-serif}
 .btn{border:1px solid var(--riga);background:var(--bianco);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:system-ui,sans-serif;font-size:.92rem}
 .btn.primo{background:var(--verde);border-color:var(--verde);color:#fff}
-.btn.chiaro{background:transparent;border-color:#fff8;color:#fff}
+.btn.chiaro{background:transparent;border-color:#fff8;color:#fff;text-decoration:none}
 .btn.pericolo{color:var(--rosso)}
 .btn:disabled{opacity:.5;cursor:wait}
 #avviso{background:#fff3cd;border-bottom:1px solid #e8d48a;padding:8px 16px;font:.85rem system-ui,sans-serif}
@@ -55,6 +55,8 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 .dettaglio img{width:100%;max-height:340px;object-fit:cover;border-radius:10px;margin-bottom:12px}
 .dettaglio ul{padding-left:20px}
 .dettaglio .passi{white-space:pre-line}
+.anteprima{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.anteprima img{width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--riga)}
 .messaggio{font:.88rem system-ui,sans-serif;color:var(--rosso);min-height:1.2em}
 @media(max-width:640px){.filtri,.due{grid-template-columns:1fr}}
 </style>
@@ -62,6 +64,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 <body>
 <header>
   <h1>Le ricette di Sapori<small id="versione"></small></h1>
+  <a class="btn chiaro" id="btnSapori" href="https://www.saporiditalia.club" target="_blank" rel="noopener">Apri il sito di Sapori d'Italia ↗</a>
   <button class="btn chiaro" id="btnInstalla" hidden>📲 Installa l'app</button>
   <button class="btn chiaro" id="btnNuova" hidden>+ Nuova ricetta</button>
   <button class="btn chiaro" id="btnAccesso" hidden></button>
@@ -85,7 +88,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 <script src="config.js"></script>
 <script>
 "use strict";
-const VERSION = "0.2", VERSION_DATE = "16/11/2026";
+const VERSION = "0.3", VERSION_DATE = "17/11/2026";
 const CHIAVE_LOCALE = "ricette-di-sapori-v1";
 const CATEGORIE_BASE = ["Antipasti", "Primi", "Secondi", "Contorni", "Dolci", "Pane e pizza", "Salse", "Bevande"];
 const CFG = window.RICETTE_CONFIG || {};
@@ -95,6 +98,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const righe = (t) => String(t || "").split(/\n|;/).map((x) => x.trim()).filter(Boolean);
 const virgole = (t) => String(t || "").split(",").map((x) => x.trim()).filter(Boolean);
+const piano = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // «Tiramisù» si trova anche scrivendo «tiramisu»
 const soloHttp = (u) => (/^https?:\/\//i.test(String(u || "").trim()) ? String(u).trim() : "");
 
 // Completa una ricetta con tutti i campi: i dati vecchi non devono mai rompersi.
@@ -131,7 +135,13 @@ const archivioLocale = {
   async elimina(r) { this.scrivi(this.leggi().filter((x) => x.id !== r.id)); },
   async caricaFoto(file, dataUrl) { return { fotoUrl: dataUrl, fotoId: "" }; },
   urlFoto(r) { return r.fotoUrl; },
-  async esegui() { throw new Error("Funziona solo quando il programma è collegato ad Appwrite."); },
+  async esegui(nome, corpo) {
+    // Solo per le prove automatiche: un finto server che fa le veci della funzione di Appwrite.
+    if (!CFG.serverDiProva) throw new Error("Funziona solo quando il programma è collegato ad Appwrite.");
+    const risposta = await (await fetch(CFG.serverDiProva + nome, { method: "POST", body: JSON.stringify(corpo) })).json();
+    if (!risposta.ok) throw new Error(risposta.errore || "Operazione non riuscita.");
+    return risposta.ricetta;
+  },
 };
 
 function creaArchivioAppwrite() {
@@ -191,10 +201,10 @@ let ricette = [];
 const stelle = (n) => `<span class="stelle" aria-label="${n} stelle su 5">${"★".repeat(n)}<span class="vuota">${"★".repeat(5 - n)}</span></span>`;
 
 function filtrate() {
-  const t = $("fTesto").value.trim().toLowerCase(), c = $("fCategoria").value, s = +$("fStelle").value;
+  const t = piano($("fTesto").value.trim()), c = $("fCategoria").value, s = +$("fStelle").value;
   return ricette.filter((r) =>
     (!c || r.categorie.includes(c)) && r.stelle >= s &&
-    (!t || [r.titolo, r.fonte, ...r.ingredienti, ...r.categorie].join(" ").toLowerCase().includes(t)));
+    (!t || piano([r.titolo, r.fonte, ...r.ingredienti, ...r.categorie].join(" ")).includes(t)));
 }
 
 function disegna() {
@@ -205,7 +215,7 @@ function disegna() {
   $("elenco").innerHTML = l.length ? l.map((r) => {
     const foto = soloHttp(archivio.urlFoto(r)) || (String(r.fotoUrl).startsWith("data:image/") ? r.fotoUrl : "");
     return `<article class="scheda" data-id="${esc(r.id)}" tabindex="0">
-      <div class="foto">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : "🍝"}</div>
+      <div class="foto">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : "🍝"}</div>
       <div class="testo"><h3>${esc(r.titolo)}</h3>${stelle(r.stelle)}
       <div class="etichette">${r.categorie.map((c) => `<span class="etichetta">${esc(c)}</span>`).join("")}${archivio.redattore && !r.pubblica ? `<span class="etichetta privata">privata</span>` : ""}</div></div>
     </article>`;
@@ -230,7 +240,7 @@ function mostra(r) {
   const foto = soloHttp(archivio.urlFoto(r)) || (String(r.fotoUrl).startsWith("data:image/") ? r.fotoUrl : "");
   const link = soloHttp(r.link);
   apri(`<div class="dettaglio">
-    ${foto ? `<img src="${esc(foto)}" alt="">` : ""}
+    ${foto ? `<img src="${esc(foto)}" alt="" referrerpolicy="no-referrer">` : ""}
     <h2>${esc(r.titolo)}</h2>
     <div class="riga">${stelle(r.stelle)}<span class="etichette">${r.categorie.map((c) => `<span class="etichetta">${esc(c)}</span>`).join("")}</span></div>
     <p style="color:var(--tenue);font:.88rem system-ui,sans-serif">${[r.tempo && "Tempo: " + esc(r.tempo), r.porzioni && "Porzioni: " + esc(r.porzioni), r.fonte && "Fonte: " + esc(r.fonte)].filter(Boolean).join(" · ")}</p>
@@ -290,7 +300,7 @@ function modifica(originale) {
     <div class="campo"><label for="mProcedimento">Procedimento</label><textarea id="mProcedimento"></textarea></div>
     <div class="due"><div class="campo"><label for="mTempo">Tempo</label><input id="mTempo"></div><div class="campo"><label for="mPorzioni">Porzioni</label><input id="mPorzioni"></div></div>
     <div class="campo"><label for="mNote">Le nostre note</label><textarea id="mNote" style="min-height:60px"></textarea></div>
-    <div class="campo"><label for="mFoto">Foto del piatto</label><input id="mFoto" type="file" accept="image/*"></div>
+    <div class="campo"><label for="mFoto">Foto del piatto</label><div id="mAnteprima"></div><input id="mFoto" type="file" accept="image/*"></div>
     <div class="campo"><label><input type="checkbox" id="mPubblica"> Visibile ai clienti (lasciare spento per le ricette copiate da altri siti o libri)</label></div>
     <div class="messaggio" id="mErrore"></div>
     <div class="riga"><button class="btn primo" id="mSalva">Salva</button><button class="btn" id="mAnnulla">Annulla</button></div>`);
@@ -307,6 +317,19 @@ function modifica(originale) {
   };
   disegnaStelle();
   $("mStelle").onclick = (e) => { const n = +e.target.dataset.n; if (n) { r.stelle = r.stelle === n ? 0 : n; disegnaStelle(); } };
+  // Mostra la foto che verrà salvata: quella scelta dal dispositivo oppure quella presa dal sito.
+  const disegnaAnteprima = () => {
+    const dalSito = !fotoNuova && !r.fotoId && soloHttp(r.fotoUrl);
+    const foto = fotoNuova ? fotoNuova.dataUrl : soloHttp(archivio.urlFoto(r)) || (String(r.fotoUrl).startsWith("data:image/") ? r.fotoUrl : "");
+    $("mAnteprima").innerHTML = foto ? `<div class="anteprima"><img src="${esc(foto)}" alt="" referrerpolicy="no-referrer">
+      ${dalSito ? `<span><span class="etichetta">foto del sito originale</span> <button type="button" class="btn" id="mTogliFoto">Togli la foto</button></span>` : ""}</div>` : "";
+    if (dalSito && foto) $("mTogliFoto").onclick = () => { r.fotoUrl = ""; disegnaAnteprima(); };
+  };
+  disegnaAnteprima();
+  const avvisi = (titolo, voci) => {
+    $("mDubbi").hidden = false;
+    $("mDubbi").innerHTML = `<b>${esc(titolo)}</b>` + (voci.length ? "<ul>" + voci.map((x) => `<li>${esc(x)}</li>`).join("") + "</ul>" : "");
+  };
   $("mAnnulla").onclick = chiudi;
   const stato = (t) => { $("mStato").textContent = t; };
   const occupato = (si) => ["mLeggiLink", "mSalva"].forEach((b) => { $(b).disabled = si; });
@@ -317,8 +340,20 @@ function modifica(originale) {
     occupato(true); stato("Leggo il sito…");
     try {
       const d = await archivio.esegui(CFG.fnLink, { url });
-      riempi({ ...d, link: url }); r.fonte = d.fonte || r.fonte; r.fotoUrl = d.fotoUrl || r.fotoUrl;
-      stato(d.trovata ? "Letta. Controlla i dati prima di salvare." : "Questo sito non dichiara la ricetta: ho preso solo titolo e immagine.");
+      if (!d.trovata) {
+        // Niente dati leggibili: non si tocca quello che è già scritto, si propongono solo titolo e foto.
+        if (!$("mTitolo").value.trim()) $("mTitolo").value = d.titolo || "";
+        if (!r.fotoId && !r.fotoUrl) r.fotoUrl = soloHttp(d.fotoUrl);
+        r.fonte = d.fonte || r.fonte; disegnaAnteprima();
+        avvisi("Questa pagina non contiene una ricetta leggibile in automatico.", ["Ho preso solo il titolo e l'immagine.", "Ingredienti e procedimento vanno scritti a mano: puoi copiarli dalla pagina originale."]);
+        stato("Ricetta non letta: inseriscila a mano.");
+      } else {
+        riempi({ ...d, link: url }); r.fonte = d.fonte || r.fonte;
+        if (!r.fotoId) r.fotoUrl = soloHttp(d.fotoUrl) || r.fotoUrl;
+        $("mPubblica").checked = false; disegnaAnteprima();
+        avvisi("Letta dal sito " + (d.fonte || "") + ": controlla i dati prima di salvare.", [...(d.avvisi || []).filter(Boolean), "Testi e foto sono del sito originale: la ricetta resta privata, per uso interno."]);
+        stato("Letta. Controlla i dati prima di salvare.");
+      }
     } catch (e) { stato(e.message); }
     occupato(false);
   };
@@ -331,9 +366,7 @@ function modifica(originale) {
       const d = await archivio.esegui(CFG.fnFoto, { tipo: "image/jpeg", immagine: f.dataUrl.split(",")[1] });
       riempi(d);
       const dubbi = (d.dubbi || []).filter(Boolean);
-      $("mDubbi").hidden = false;
-      $("mDubbi").innerHTML = "<b>Letta dall'intelligenza artificiale: controlla tutto, soprattutto le quantità.</b>" +
-        (dubbi.length ? "<ul>" + dubbi.map((x) => `<li>${esc(x)}</li>`).join("") + "</ul>" : "");
+      avvisi("Letta dall'intelligenza artificiale: controlla tutto, soprattutto le quantità.", dubbi);
       stato("");
     } catch (e) { stato(e.message); }
     occupato(false); ev.target.value = "";
@@ -341,7 +374,7 @@ function modifica(originale) {
 
   $("mFoto").onchange = async (ev) => {
     const file = ev.target.files[0]; if (!file) return;
-    try { fotoNuova = await rimpicciolisci(file, 1200); } catch (e) { $("mErrore").textContent = e.message; }
+    try { fotoNuova = await rimpicciolisci(file, 1200); disegnaAnteprima(); } catch (e) { $("mErrore").textContent = e.message; }
   };
 
   $("mSalva").onclick = async () => {
@@ -353,6 +386,7 @@ function modifica(originale) {
     };
     if (!dati.titolo) { $("mErrore").textContent = "Manca il titolo."; return; }
     if ($("mLink").value.trim() && !dati.link) { $("mErrore").textContent = "Il link deve cominciare con https://"; return; }
+    if (dati.pubblica && dati.link && !confirm("Questa ricetta ha il link di un altro sito: testi e foto potrebbero essere di altri.\nRenderla davvero visibile ai clienti?")) return;
     if (dati.link && !dati.fonte) { try { dati.fonte = new URL(dati.link).hostname.replace(/^www\./, ""); } catch {} }
     occupato(true); $("mErrore").textContent = "";
     try {

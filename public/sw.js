@@ -1,7 +1,7 @@
 // Servizio in sottofondo: rende l'app installabile e la fa aprire anche senza rete.
 // Tiene in memoria solo le pagine del programma, mai i dati di Appwrite.
 // Cambiare il numero qui sotto a ogni pubblicazione, insieme a VERSION in index.html.
-const MEMORIA = "ricette-di-sapori-0.2";
+const MEMORIA = "ricette-di-sapori-0.3";
 const FILE = ["./", "index.html", "appwrite.js", "config.js", "manifest.webmanifest", "icona-192.png", "icona-512.png"];
 
 self.addEventListener("install", (e) => {
